@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>席替えプロ - 決定版</title>
+<title>席替えプロ - 修正版</title>
 <style>
 :root {
   --bg-color: #f0f4f8;
@@ -28,9 +28,17 @@ body { font-family: sans-serif; text-align: center; background: var(--bg-color);
 }
 textarea { width: 100%; height: 50px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem; user-select: text; }
 
-/* ヘルプ用モーダル */
+.confetti {
+  position: fixed; width: 10px; height: 10px; background-color: #f00;
+  top: -10px; z-index: 999; pointer-events: none;
+  animation: fall linear forwards;
+}
+@keyframes fall {
+  to { transform: translateY(100vh) rotate(720deg); }
+}
+
 #help-modal {
-  display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%;
+  display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%;
   background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
 }
 .modal-content {
@@ -84,7 +92,6 @@ button { padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; 
 #autoRevealBtn { background: #f59e0b; color: white; display: none; padding: 12px 24px; font-size: 1.2rem; }
 #revealAllBtn { background: #3b82f6; color: white; display: none; padding: 12px 24px; font-size: 1.2rem; }
 #backBtn { background: #334155; color: white; display: none; font-size: 0.8rem; }
-.print-btn { background: #10b981; color: white; }
 </style>
 </head>
 <body oncontextmenu="return false;"> 
@@ -92,14 +99,11 @@ button { padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; 
 <div id="help-modal">
   <div class="modal-content">
     <span class="close-btn" onclick="toggleHelp()">&times;</span>
-    <h3>使い方ガイド</h3>
-    <ol>
-      <li><strong>列・席数を設定</strong>：「配置反映」で教室の形を作ります。</li>
-      <li><strong>性別を設定</strong>：席を普通にクリックすると「男子→女子→なし→欠席」と切り替わります。</li>
-      <li><strong>番号を固定</strong>：特定の席に座らせたい子は、その席を<b>長押し</b>または<b>右クリック</b>（ダブルクリック）して番号を入力します。</li>
-      <li><strong>リスト入力</strong>：男女の出席番号を全員分入力します（固定した子の番号は入れたままでOK！自動で除外されます）。</li>
-      <li><strong>スタート！</strong>：運命の席替えを楽しみましょう。</li>
-    </ol>
+    <h3>席替えプロ・ガイド</h3>
+    <p><b>1. 配置:</b>「反映」で形を作り、クリックで性別を設定。</p>
+    <p><b>2. 固定:</b> 席を<b>長押し/右クリック</b>で特定の番号を固定。</p>
+    <p><b>3. 入力:</b> 男女の番号をスペース区切りで入力。</p>
+    <p><b>4. 本番:</b> スタート後、全員開くと<b>紙吹雪演出</b>が発動します！</p>
   </div>
 </div>
 
@@ -109,14 +113,14 @@ button { padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; 
     <button id="helpBtn" onclick="toggleHelp()" style="padding: 5px 12px; font-size: 0.8rem;">使い方表示</button>
   </div>
   
-  <strong>男子番号:</strong><textarea id="boyList" placeholder="例: 1 2 3..."></textarea>
-  <strong>女子番号:</strong><textarea id="girlList" placeholder="例: 21 22 23..."></textarea>
+  <strong>男子:</strong><textarea id="boyList" placeholder="1 2 3..."></textarea>
+  <strong>女子:</strong><textarea id="girlList" placeholder="21 22 23..."></textarea>
   
   <div style="font-size: 0.9rem; margin: 10px 0;">
-    列数: <input type="number" id="colInput" value="6" style="width:40px;"> 
-    総席数: <input type="number" id="totalInput" value="30" style="width:40px;">
+    列: <input type="number" id="colInput" value="6" style="width:35px;"> 
+    席数: <input type="number" id="totalInput" value="30" style="width:35px;">
     <button id="initBtn" style="font-size:0.8rem;">配置反映</button>
-    <button class="print-btn" style="font-size:0.8rem;" onclick="window.print()">印刷</button>
+    <button style="font-size:0.8rem; background:#10b981; color:white;" onclick="window.print()">印刷</button>
   </div>
   <button id="shuffleBtn" style="width:100%; margin-top:5px;">席替えスタート！</button>
 </div>
@@ -133,7 +137,7 @@ button { padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; 
 </div>
 
 <script>
-const sounds = { reveal: new Audio('カードをめくる.mp3') };
+const sounds = { reveal: new Audio('ドーン.mp3') };
 function playSound(type) {
   if (sounds[type]) {
     sounds[type].pause(); sounds[type].currentTime = 0;
@@ -161,6 +165,19 @@ function toggleHelp() {
   modal.style.display = (modal.style.display === "block") ? "none" : "block";
 }
 
+function startConfetti() {
+  for (let i = 0; i < 100; i++) {
+    const confetti = document.createElement('div');
+    confetti.className = 'confetti';
+    confetti.style.left = Math.random() * 100 + 'vw';
+    confetti.style.backgroundColor = `hsl(${Math.random() * 360}, 100%, 50%)`;
+    confetti.style.animationDuration = (Math.random() * 3 + 2) + 's';
+    confetti.style.opacity = Math.random();
+    document.body.appendChild(confetti);
+    setTimeout(() => confetti.remove(), 5000);
+  }
+}
+
 function saveToStorage() {
   localStorage.setItem('sekigae_boys', boyInput.value);
   localStorage.setItem('sekigae_girls', girlInput.value);
@@ -181,8 +198,6 @@ function loadFromStorage() {
   const layout = localStorage.getItem('sekigae_layout');
   return layout ? JSON.parse(layout) : null;
 }
-
-[boyInput, girlInput, colInput, totalInput].forEach(el => el.addEventListener('input', saveToStorage));
 
 function openFixDialog(el) {
   if (isRevealingMode || el.dataset.type === "none" || el.dataset.type === "absent") return;
@@ -223,10 +238,7 @@ function renderGrid(cols, total, savedLayout = null) {
     div.onpointerdown = (e) => {
         if (isRevealingMode) return;
         isLongPress = false;
-        longPressTimer = setTimeout(() => {
-            isLongPress = true;
-            openFixDialog(div);
-        }, 600);
+        longPressTimer = setTimeout(() => { isLongPress = true; openFixDialog(div); }, 600);
     };
 
     div.onpointerup = (e) => {
@@ -262,6 +274,9 @@ async function revealSeat(el) {
   playSound('reveal');
   el.classList.remove('hidden-seat');
   el.classList.add('reveal');
+  if (document.querySelectorAll('.hidden-seat').length === 0) {
+    setTimeout(startConfetti, 500);
+  }
 }
 
 function startShuffle() {
@@ -297,15 +312,31 @@ function startShuffle() {
 revealAllBtn.onclick = () => {
   isAutoPlaying = false;
   const hiddens = document.querySelectorAll('.hidden-seat');
-  if (hiddens.length > 0) playSound('reveal');
-  hiddens.forEach(s => { s.classList.remove('hidden-seat'); s.classList.add('reveal'); });
+  if (hiddens.length > 0) {
+    playSound('reveal');
+    hiddens.forEach(s => { s.classList.remove('hidden-seat'); s.classList.add('reveal'); });
+    setTimeout(startConfetti, 600);
+  }
   revealAllBtn.style.display = "none";
   autoRevealBtn.style.display = "none";
 };
 
+// 【修正箇所】リロードせずに画面表示だけを切り替えるように変更
 backBtn.onclick = () => {
-  if(!confirm("設定に戻りますか？現在の結果は消去されます。")) return;
-  location.reload(); 
+  if(!confirm("設定に戻りますか？現在のシャッフル結果は消去されます。")) return;
+  
+  // プレゼンモードの解除
+  isRevealingMode = false;
+  isAutoPlaying = false;
+  document.body.classList.remove('mode-presentation');
+  document.body.style.background = "var(--bg-color)";
+  setupArea.classList.remove('hidden');
+  autoRevealBtn.style.display = "none";
+  revealAllBtn.style.display = "none";
+  backBtn.style.display = "none";
+  
+  // 席をシャッフル前の状態（保存されたレイアウト）に再描画
+  renderGrid(colInput.value, totalInput.value, loadFromStorage());
 };
 
 async function autoReveal() {
@@ -314,7 +345,12 @@ async function autoReveal() {
   autoRevealBtn.textContent = "一時停止";
   while (isAutoPlaying) {
     const hiddens = [...document.querySelectorAll('.hidden-seat')];
-    if (hiddens.length === 0) { isAutoPlaying = false; break; }
+    if (hiddens.length === 0) { 
+        isAutoPlaying = false; 
+        autoRevealBtn.style.display = "none";
+        revealAllBtn.style.display = "none";
+        break; 
+    }
     const target = hiddens[Math.floor(Math.random() * hiddens.length)];
     await revealSeat(target);
     await new Promise(r => setTimeout(r, 600)); 
@@ -327,6 +363,7 @@ autoRevealBtn.onclick = () => {
 };
 
 document.getElementById("initBtn").onclick = () => {
+  saveToStorage(); // 反映時に現在の設定を保存
   renderGrid(colInput.value, totalInput.value, loadFromStorage());
 };
 document.getElementById("shuffleBtn").onclick = startShuffle;
