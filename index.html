@@ -94,7 +94,6 @@ button { padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; 
 #backBtn { background: #334155; color: white; display: none; font-size: 0.8rem; }
 .print-btn { background: #10b981; color: white; }
 
-/* 印刷時の設定 */
 @media print {
   .print-hide { display: none !important; }
   body { background: white !important; padding: 0; }
@@ -111,10 +110,10 @@ button { padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; 
   <div class="modal-content">
     <span class="close-btn" onclick="toggleHelp()">&times;</span>
     <h3>席替えプロ・ガイド</h3>
-    <p><b>1. 配置:</b>「反映」で形を作り、クリックで性別を設定。</p>
-    <p><b>2. 固定:</b> 席を<b>長押し/右クリック</b>で特定の番号を固定。</p>
-    <p><b>3. 入力:</b> 男女の番号をスペース区切りで入力。</p>
-    <p><b>4. 本番:</b> スタート後、全員開くと<b>紙吹雪演出</b>が発動します！</p>
+    <p><b>1. 入力:</b> 男女の番号を入れると、席数が自動計算されます。</p>
+    <p><b>2. 配置:</b>「反映」で形を作り、席クリックで性別を調整。</p>
+    <p><b>3. 固定:</b> 席を<b>長押し/右クリック</b>で特定番号を固定。</p>
+    <p><b>4. 本番:</b> スタート後、全員開くと<b>紙吹雪演出</b>！</p>
   </div>
 </div>
 
@@ -124,8 +123,10 @@ button { padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; 
     <button id="helpBtn" onclick="toggleHelp()" style="padding: 5px 12px; font-size: 0.8rem;">使い方表示</button>
   </div>
   
-  <strong>男子:</strong><textarea id="boyList" placeholder="1 2 3..."></textarea>
-  <strong>女子:</strong><textarea id="girlList" placeholder="21 22 23..."></textarea>
+  <strong>男子 (現在の数: <span id="boyCount">0</span>):</strong>
+  <textarea id="boyList" placeholder="1 2 3..."></textarea>
+  <strong>女子 (現在の数: <span id="girlCount">0</span>):</strong>
+  <textarea id="girlList" placeholder="21 22 23..."></textarea>
   
   <div style="font-size: 0.9rem; margin: 10px 0;">
     列: <input type="number" id="colInput" value="6" style="width:35px;"> 
@@ -163,6 +164,8 @@ const boyInput = document.getElementById("boyList");
 const girlInput = document.getElementById("girlList");
 const colInput = document.getElementById("colInput");
 const totalInput = document.getElementById("totalInput");
+const boyCountDisp = document.getElementById("boyCount");
+const girlCountDisp = document.getElementById("girlCount");
 const autoRevealBtn = document.getElementById("autoRevealBtn");
 const revealAllBtn = document.getElementById("revealAllBtn");
 const backBtn = document.getElementById("backBtn");
@@ -177,6 +180,20 @@ function toggleHelp() {
   const modal = document.getElementById("help-modal");
   modal.style.display = (modal.style.display === "block") ? "none" : "block";
 }
+
+// 【新機能】番号の個数を数えて席数に反映する関数
+function updateAutoCount() {
+  const boys = boyInput.value.split(/[,\s\n]+/).filter(v => v).length;
+  const girls = girlInput.value.split(/[,\s\n]+/).filter(v => v).length;
+  boyCountDisp.textContent = boys;
+  girlCountDisp.textContent = girls;
+  totalInput.value = boys + girls; // 合計を席数に代入
+  saveToStorage();
+}
+
+// 入力時にカウントを実行
+boyInput.addEventListener('input', updateAutoCount);
+girlInput.addEventListener('input', updateAutoCount);
 
 function startConfetti() {
   for (let i = 0; i < 100; i++) {
@@ -208,6 +225,11 @@ function loadFromStorage() {
   girlInput.value = localStorage.getItem('sekigae_girls') || "";
   colInput.value = localStorage.getItem('sekigae_cols') || 6;
   totalInput.value = localStorage.getItem('sekigae_total') || 30;
+  
+  // 読み込み時に表示カウントも更新
+  boyCountDisp.textContent = boyInput.value.split(/[,\s\n]+/).filter(v => v).length;
+  girlCountDisp.textContent = girlInput.value.split(/[,\s\n]+/).filter(v => v).length;
+
   const layout = localStorage.getItem('sekigae_layout');
   return layout ? JSON.parse(layout) : null;
 }
@@ -290,7 +312,7 @@ async function revealSeat(el) {
   if (document.querySelectorAll('.hidden-seat').length === 0) {
     setTimeout(() => {
         startConfetti();
-        presoPrintBtn.style.display = "inline-block"; // 全員開いたら印刷ボタンを出す
+        presoPrintBtn.style.display = "inline-block";
     }, 500);
   }
 }
@@ -304,7 +326,7 @@ function startShuffle() {
   
   if (boys.length < seats.filter(s=>s.dataset.type==="boy" && !s.dataset.fixedNum).length || 
       girls.length < seats.filter(s=>s.dataset.type==="girl" && !s.dataset.fixedNum).length) {
-    alert("番号が足りません！"); return;
+    alert("番号が足りません！配置（男子・女子の数）とリストの数を確認してください。"); return;
   }
 
   setupArea.classList.add('hidden');
@@ -313,7 +335,7 @@ function startShuffle() {
   autoRevealBtn.style.display = "inline-block";
   revealAllBtn.style.display = "inline-block";
   backBtn.style.display = "inline-block";
-  presoPrintBtn.style.display = "none"; // シャッフル直後は隠す
+  presoPrintBtn.style.display = "none";
 
   isRevealingMode = true;
   seats.forEach(s => {
