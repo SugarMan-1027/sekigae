@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>席替えプロ - 決定版</title>
+<style>
+:root {
+  --bg-color: #f0f4f8;
+  --card-bg: #ffffff;
+  --primary: #3b82f6;
+  --boy-color: #dbeafe;
+  --boy-border: #3b82f6;
+  --girl-color: #fce7f3;
+  --girl-border: #ec4899;
+  --lock-color: #fef3c7;
+  --lock-border: #f59e0b;
+  --empty-color: #f1f5f9;
+  --empty-border: #cbd5e1;
+  --secret-bg: #475569;
+}
+
+body { font-family: sans-serif; text-align: center; background: var(--bg-color); margin:0; padding:10px; transition: background 0.5s; overflow-x: hidden; user-select: none; }
+
+#setup-area { 
+  background: var(--card-bg); padding: 15px; border-radius: 12px; 
+  display: inline-block; margin-bottom: 10px; text-align: left; 
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 90%; max-width: 800px;
+}
+textarea { width: 100%; height: 50px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem; user-select: text; }
+
+/* ヘルプ用モーダル */
+#help-modal {
+  display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+}
+.modal-content {
+  background: white; margin: 10% auto; padding: 20px; border-radius: 12px;
+  width: 80%; max-width: 500px; text-align: left; line-height: 1.6;
+}
+.modal-content h3 { margin-top: 0; color: var(--primary); }
+.close-btn { float: right; cursor: pointer; font-size: 1.5rem; font-weight: bold; }
+
+.hidden { display: none !important; }
+#classroom-container { width: 98vw; margin: 0 auto; padding-bottom: 20px; }
+.classroom { display: grid; gap: 8px; width: 100%; max-width: 1200px; margin: 0 auto; }
+
+.seat {
+  aspect-ratio: 1.6 / 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border-radius: 6px; font-weight: bold; font-size: 1rem;
+  cursor: pointer; transition: 0.3s;
+  position: relative; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); background: white;
+}
+
+.mode-presentation .seat { font-size: 1.4rem; max-height: 12vh; }
+.seat.hidden-seat { background: var(--secret-bg) !important; color: white !important; border: 1px solid #1e293b !important; }
+.seat.hidden-seat::after { content: "？"; font-size: 1.5rem; }
+.seat.hidden-seat * { visibility: hidden; }
+
+.seat.fixed { border: 3px double var(--lock-border) !important; background: var(--lock-color) !important; }
+.seat.fixed::before { content: "📌固定"; position: absolute; top: 2px; right: 2px; font-size: 0.6rem; color: #b45309; background: #fff; padding: 0 2px; border-radius: 2px; border: 1px solid var(--lock-border); }
+
+.shake { animation: shake-anim 0.5s cubic-bezier(.36,.07,.19,.97) both; }
+@keyframes shake-anim {
+  10%, 90% { transform: translate3d(-1px, 0, 0); }
+  20%, 80% { transform: translate3d(2px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+  40%, 60% { transform: translate3d(4px, 0, 0); }
+}
+
+.seat.reveal { animation: flip 0.6s forwards; }
+@keyframes flip { 0% { transform: rotateY(0deg); } 50% { transform: rotateY(90deg); } 100% { transform: rotateY(0deg); } }
+
+.seat.none { background: var(--empty-color); border: 1px dashed var(--empty-border); color: #94a3b8; }
+.seat.boy { background: var(--boy-color); border: 2px solid var(--boy-border); color: #1e40af; }
+.seat.girl { background: var(--girl-color); border: 2px solid var(--girl-border); color: #9d174d; }
+.seat.absent { background: transparent; border: 1px solid transparent; color: transparent; cursor: default; }
+
+.teacher-desk { width: 150px; height: 30px; background: #334155; color: white; margin: 5px auto 15px; line-height: 30px; border-radius: 0 0 10px 10px; font-size: 0.9rem; }
+
+button { padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin: 3px; }
+#shuffleBtn { background: #e11d48; color: white; }
+#helpBtn { background: #64748b; color: white; }
+#autoRevealBtn { background: #f59e0b; color: white; display: none; padding: 12px 24px; font-size: 1.2rem; }
+#revealAllBtn { background: #3b82f6; color: white; display: none; padding: 12px 24px; font-size: 1.2rem; }
+#backBtn { background: #334155; color: white; display: none; font-size: 0.8rem; }
+.print-btn { background: #10b981; color: white; }
+</style>
+</head>
+<body oncontextmenu="return false;"> 
+
+<div id="help-modal">
+  <div class="modal-content">
+    <span class="close-btn" onclick="toggleHelp()">&times;</span>
+    <h3>使い方ガイド</h3>
+    <ol>
+      <li><strong>列・席数を設定</strong>：「配置反映」で教室の形を作ります。</li>
+      <li><strong>性別を設定</strong>：席を普通にクリックすると「男子→女子→なし→欠席」と切り替わります。</li>
+      <li><strong>番号を固定</strong>：特定の席に座らせたい子は、その席を<b>長押し</b>または<b>右クリック</b>（ダブルクリック）して番号を入力します。</li>
+      <li><strong>リスト入力</strong>：男女の出席番号を全員分入力します（固定した子の番号は入れたままでOK！自動で除外されます）。</li>
+      <li><strong>スタート！</strong>：運命の席替えを楽しみましょう。</li>
+    </ol>
+  </div>
+</div>
+
+<div id="setup-area" class="print-hide">
+  <div style="display: flex; justify-content: space-between; align-items: center;">
+    <h2 style="margin:0; font-size: 1.2rem;">席替えプロ</h2>
+    <button id="helpBtn" onclick="toggleHelp()" style="padding: 5px 12px; font-size: 0.8rem;">使い方表示</button>
+  </div>
+  
+  <strong>男子番号:</strong><textarea id="boyList" placeholder="例: 1 2 3..."></textarea>
+  <strong>女子番号:</strong><textarea id="girlList" placeholder="例: 21 22 23..."></textarea>
+  
+  <div style="font-size: 0.9rem; margin: 10px 0;">
+    列数: <input type="number" id="colInput" value="6" style="width:40px;"> 
+    総席数: <input type="number" id="totalInput" value="30" style="width:40px;">
+    <button id="initBtn" style="font-size:0.8rem;">配置反映</button>
+    <button class="print-btn" style="font-size:0.8rem;" onclick="window.print()">印刷</button>
+  </div>
+  <button id="shuffleBtn" style="width:100%; margin-top:5px;">席替えスタート！</button>
+</div>
+
+<div id="presentation-controls" class="print-hide">
+    <button id="autoRevealBtn">自動オープン</button>
+    <button id="revealAllBtn">一気にオープン！</button>
+    <button id="backBtn">設定に戻る</button>
+</div>
+
+<div id="classroom-container">
+    <div class="teacher-desk">教 卓</div>
+    <div id="classroom" class="classroom"></div>
+</div>
+
+<script>
+const sounds = { reveal: new Audio('カードをめくる.mp3') };
+function playSound(type) {
+  if (sounds[type]) {
+    sounds[type].pause(); sounds[type].currentTime = 0;
+    sounds[type].play().catch(e => {});
+  }
+}
+
+const classroom = document.getElementById("classroom");
+const setupArea = document.getElementById("setup-area");
+const boyInput = document.getElementById("boyList");
+const girlInput = document.getElementById("girlList");
+const colInput = document.getElementById("colInput");
+const totalInput = document.getElementById("totalInput");
+const autoRevealBtn = document.getElementById("autoRevealBtn");
+const revealAllBtn = document.getElementById("revealAllBtn");
+const backBtn = document.getElementById("backBtn");
+
+let isRevealingMode = false;
+let isAutoPlaying = false;
+let longPressTimer;
+let isLongPress = false;
+
+function toggleHelp() {
+  const modal = document.getElementById("help-modal");
+  modal.style.display = (modal.style.display === "block") ? "none" : "block";
+}
+
+function saveToStorage() {
+  localStorage.setItem('sekigae_boys', boyInput.value);
+  localStorage.setItem('sekigae_girls', girlInput.value);
+  localStorage.setItem('sekigae_cols', colInput.value);
+  localStorage.setItem('sekigae_total', totalInput.value);
+  const seatData = [...document.querySelectorAll(".seat")].map(s => ({
+    type: s.dataset.type,
+    fixedNum: s.dataset.fixedNum || null
+  }));
+  localStorage.setItem('sekigae_layout', JSON.stringify(seatData));
+}
+
+function loadFromStorage() {
+  boyInput.value = localStorage.getItem('sekigae_boys') || "";
+  girlInput.value = localStorage.getItem('sekigae_girls') || "";
+  colInput.value = localStorage.getItem('sekigae_cols') || 6;
+  totalInput.value = localStorage.getItem('sekigae_total') || 30;
+  const layout = localStorage.getItem('sekigae_layout');
+  return layout ? JSON.parse(layout) : null;
+}
+
+[boyInput, girlInput, colInput, totalInput].forEach(el => el.addEventListener('input', saveToStorage));
+
+function openFixDialog(el) {
+  if (isRevealingMode || el.dataset.type === "none" || el.dataset.type === "absent") return;
+  const num = prompt("固定する番号を入力（空欄で解除）:", el.dataset.fixedNum || "");
+  if (num === null) return;
+  if (num === "") {
+    delete el.dataset.fixedNum;
+    el.classList.remove("fixed");
+    updateSeat(el, el.dataset.type, el.dataset.type === "boy" ? "男子" : "女子");
+  } else {
+    el.dataset.fixedNum = num;
+    el.classList.add("fixed");
+    el.querySelector('.v').textContent = num;
+  }
+  saveToStorage();
+}
+
+function renderGrid(cols, total, savedLayout = null) {
+  classroom.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  classroom.innerHTML = "";
+  for (let i = 0; i < total; i++) {
+    const div = document.createElement("div");
+    const data = savedLayout && savedLayout[i] ? savedLayout[i] : { type: "none", fixedNum: null };
+    div.className = `seat ${data.type}`;
+    div.dataset.type = data.type;
+    const valDiv = document.createElement("div");
+    valDiv.className = "v";
+    div.appendChild(valDiv);
+
+    if (data.fixedNum) {
+        div.dataset.fixedNum = data.fixedNum;
+        div.classList.add("fixed");
+        valDiv.textContent = data.fixedNum;
+    } else {
+        valDiv.textContent = (data.type === "none" ? "なし" : data.type === "boy" ? "男子" : data.type === "girl" ? "女子" : "");
+    }
+
+    div.onpointerdown = (e) => {
+        if (isRevealingMode) return;
+        isLongPress = false;
+        longPressTimer = setTimeout(() => {
+            isLongPress = true;
+            openFixDialog(div);
+        }, 600);
+    };
+
+    div.onpointerup = (e) => {
+        clearTimeout(longPressTimer);
+        if (isRevealingMode && div.classList.contains('hidden-seat')) {
+            revealSeat(div);
+        } else if (!isRevealingMode && !isLongPress) {
+            if (div.dataset.fixedNum) return;
+            const cycle = ["none", "boy", "girl", "absent"];
+            let next = cycle[(cycle.indexOf(div.dataset.type) + 1) % cycle.length];
+            updateSeat(div, next, next === "none" ? "なし" : next === "boy" ? "男子" : "女子");
+            saveToStorage();
+        }
+    };
+
+    div.ondblclick = () => openFixDialog(div);
+    div.oncontextmenu = (e) => { e.preventDefault(); openFixDialog(div); };
+    classroom.appendChild(div);
+  }
+}
+
+function updateSeat(el, type, text) {
+  el.dataset.type = type;
+  el.className = `seat ${type} ${el.dataset.fixedNum ? 'fixed' : ''}`;
+  el.querySelector('.v').textContent = (type === "absent") ? "" : (el.dataset.fixedNum || text);
+}
+
+async function revealSeat(el) {
+  if (!el.classList.contains('hidden-seat')) return;
+  el.classList.add('shake');
+  await new Promise(r => setTimeout(r, 500));
+  el.classList.remove('shake');
+  playSound('reveal');
+  el.classList.remove('hidden-seat');
+  el.classList.add('reveal');
+}
+
+function startShuffle() {
+  saveToStorage();
+  const seats = [...document.querySelectorAll(".seat")];
+  const fixedNums = seats.map(s => s.dataset.fixedNum).filter(v => v);
+  const boys = boyInput.value.split(/[,\s\n]+/).filter(v=>v && !fixedNums.includes(v)).sort(()=>Math.random()-0.5);
+  const girls = girlInput.value.split(/[,\s\n]+/).filter(v=>v && !fixedNums.includes(v)).sort(()=>Math.random()-0.5);
+  
+  if (boys.length < seats.filter(s=>s.dataset.type==="boy" && !s.dataset.fixedNum).length || 
+      girls.length < seats.filter(s=>s.dataset.type==="girl" && !s.dataset.fixedNum).length) {
+    alert("番号が足りません！"); return;
+  }
+
+  setupArea.classList.add('hidden');
+  document.body.classList.add('mode-presentation');
+  document.body.style.background = "#1e293b";
+  autoRevealBtn.style.display = "inline-block";
+  revealAllBtn.style.display = "inline-block";
+  backBtn.style.display = "inline-block";
+
+  isRevealingMode = true;
+  seats.forEach(s => {
+    if (s.dataset.type === "boy" || s.dataset.type === "girl") {
+        if (!s.dataset.fixedNum) {
+            s.querySelector('.v').textContent = (s.dataset.type === "boy") ? boys.pop() : girls.pop();
+        }
+        s.classList.add('hidden-seat');
+    }
+  });
+}
+
+revealAllBtn.onclick = () => {
+  isAutoPlaying = false;
+  const hiddens = document.querySelectorAll('.hidden-seat');
+  if (hiddens.length > 0) playSound('reveal');
+  hiddens.forEach(s => { s.classList.remove('hidden-seat'); s.classList.add('reveal'); });
+  revealAllBtn.style.display = "none";
+  autoRevealBtn.style.display = "none";
+};
+
+backBtn.onclick = () => {
+  if(!confirm("設定に戻りますか？現在の結果は消去されます。")) return;
+  location.reload(); 
+};
+
+async function autoReveal() {
+  if (isAutoPlaying) return;
+  isAutoPlaying = true;
+  autoRevealBtn.textContent = "一時停止";
+  while (isAutoPlaying) {
+    const hiddens = [...document.querySelectorAll('.hidden-seat')];
+    if (hiddens.length === 0) { isAutoPlaying = false; break; }
+    const target = hiddens[Math.floor(Math.random() * hiddens.length)];
+    await revealSeat(target);
+    await new Promise(r => setTimeout(r, 600)); 
+  }
+}
+
+autoRevealBtn.onclick = () => {
+  if (isAutoPlaying) { isAutoPlaying = false; autoRevealBtn.textContent = "再開"; }
+  else { autoReveal(); }
+};
+
+document.getElementById("initBtn").onclick = () => {
+  renderGrid(colInput.value, totalInput.value, loadFromStorage());
+};
+document.getElementById("shuffleBtn").onclick = startShuffle;
+
+renderGrid(colInput.value, totalInput.value, loadFromStorage());
+</script>
+</body>
+</html>
