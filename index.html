@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>席替えプロ - 修正版</title>
+<title>席替え</title>
 <style>
 :root {
   --bg-color: #f0f4f8;
@@ -92,6 +92,17 @@ button { padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; 
 #autoRevealBtn { background: #f59e0b; color: white; display: none; padding: 12px 24px; font-size: 1.2rem; }
 #revealAllBtn { background: #3b82f6; color: white; display: none; padding: 12px 24px; font-size: 1.2rem; }
 #backBtn { background: #334155; color: white; display: none; font-size: 0.8rem; }
+.print-btn { background: #10b981; color: white; }
+
+/* 印刷時の設定 */
+@media print {
+  .print-hide { display: none !important; }
+  body { background: white !important; padding: 0; }
+  #classroom-container { width: 100%; }
+  .seat { border: 1px solid #000 !important; color: #000 !important; background: white !important; }
+  .seat.boy { background: #f0f9ff !important; }
+  .seat.girl { background: #fff1f2 !important; }
+}
 </style>
 </head>
 <body oncontextmenu="return false;"> 
@@ -120,7 +131,7 @@ button { padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; 
     列: <input type="number" id="colInput" value="6" style="width:35px;"> 
     席数: <input type="number" id="totalInput" value="30" style="width:35px;">
     <button id="initBtn" style="font-size:0.8rem;">配置反映</button>
-    <button style="font-size:0.8rem; background:#10b981; color:white;" onclick="window.print()">印刷</button>
+    <button class="print-btn" style="font-size:0.8rem;" onclick="window.print()">印刷</button>
   </div>
   <button id="shuffleBtn" style="width:100%; margin-top:5px;">席替えスタート！</button>
 </div>
@@ -128,6 +139,7 @@ button { padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; 
 <div id="presentation-controls" class="print-hide">
     <button id="autoRevealBtn">自動オープン</button>
     <button id="revealAllBtn">一気にオープン！</button>
+    <button id="presoPrintBtn" class="print-btn" style="display:none;" onclick="window.print()">印刷</button>
     <button id="backBtn">設定に戻る</button>
 </div>
 
@@ -154,6 +166,7 @@ const totalInput = document.getElementById("totalInput");
 const autoRevealBtn = document.getElementById("autoRevealBtn");
 const revealAllBtn = document.getElementById("revealAllBtn");
 const backBtn = document.getElementById("backBtn");
+const presoPrintBtn = document.getElementById("presoPrintBtn");
 
 let isRevealingMode = false;
 let isAutoPlaying = false;
@@ -275,7 +288,10 @@ async function revealSeat(el) {
   el.classList.remove('hidden-seat');
   el.classList.add('reveal');
   if (document.querySelectorAll('.hidden-seat').length === 0) {
-    setTimeout(startConfetti, 500);
+    setTimeout(() => {
+        startConfetti();
+        presoPrintBtn.style.display = "inline-block"; // 全員開いたら印刷ボタンを出す
+    }, 500);
   }
 }
 
@@ -297,6 +313,7 @@ function startShuffle() {
   autoRevealBtn.style.display = "inline-block";
   revealAllBtn.style.display = "inline-block";
   backBtn.style.display = "inline-block";
+  presoPrintBtn.style.display = "none"; // シャッフル直後は隠す
 
   isRevealingMode = true;
   seats.forEach(s => {
@@ -315,17 +332,17 @@ revealAllBtn.onclick = () => {
   if (hiddens.length > 0) {
     playSound('reveal');
     hiddens.forEach(s => { s.classList.remove('hidden-seat'); s.classList.add('reveal'); });
-    setTimeout(startConfetti, 600);
+    setTimeout(() => {
+        startConfetti();
+        presoPrintBtn.style.display = "inline-block";
+    }, 600);
   }
   revealAllBtn.style.display = "none";
   autoRevealBtn.style.display = "none";
 };
 
-// 【修正箇所】リロードせずに画面表示だけを切り替えるように変更
 backBtn.onclick = () => {
-  if(!confirm("設定に戻りますか？現在のシャッフル結果は消去されます。")) return;
-  
-  // プレゼンモードの解除
+  if(!confirm("設定に戻りますか？")) return;
   isRevealingMode = false;
   isAutoPlaying = false;
   document.body.classList.remove('mode-presentation');
@@ -334,8 +351,7 @@ backBtn.onclick = () => {
   autoRevealBtn.style.display = "none";
   revealAllBtn.style.display = "none";
   backBtn.style.display = "none";
-  
-  // 席をシャッフル前の状態（保存されたレイアウト）に再描画
+  presoPrintBtn.style.display = "none";
   renderGrid(colInput.value, totalInput.value, loadFromStorage());
 };
 
@@ -349,6 +365,7 @@ async function autoReveal() {
         isAutoPlaying = false; 
         autoRevealBtn.style.display = "none";
         revealAllBtn.style.display = "none";
+        presoPrintBtn.style.display = "inline-block";
         break; 
     }
     const target = hiddens[Math.floor(Math.random() * hiddens.length)];
@@ -363,7 +380,7 @@ autoRevealBtn.onclick = () => {
 };
 
 document.getElementById("initBtn").onclick = () => {
-  saveToStorage(); // 反映時に現在の設定を保存
+  saveToStorage();
   renderGrid(colInput.value, totalInput.value, loadFromStorage());
 };
 document.getElementById("shuffleBtn").onclick = startShuffle;
